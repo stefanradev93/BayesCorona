@@ -150,11 +150,11 @@ def train_online_vae(model, optimizer, data_gen, iterations, batch_size, p_bar=N
             out = model(batch['x'], batch['m'])
 
             # Compute losses
-            cent = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=batch['m'], logits=out['m_logits']))
+            cent = tf.reduce_mean(input_tensor=tf.nn.softmax_cross_entropy_with_logits(labels=tf.stop_gradient(batch['m']), logits=out['m_logits']))
 
             if regularization == 'MMD':
                 # Sample from unit Gaussian
-                z_true = tf.random_normal(shape=out['z_samples'].shape)
+                z_true = tf.random.normal(shape=out['z_samples'].shape)
                 reg = maximum_mean_discrepancy(out['z_samples'], z_true, weight=regularization_weight)
             elif regularization == 'KL':
                 reg = kullback_leibler_gaussian(out['z_mean'], out['z_logvar'], beta=regularization_weight)
@@ -223,7 +223,7 @@ def train_online_dropout(model, optimizer, data_gen, iterations, batch_size, p_b
             out = model(batch['x'])
         
             # Compute loss
-            total_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=batch['m'], logits=out['m_logits']))
+            total_loss = tf.reduce_mean(input_tensor=tf.nn.softmax_cross_entropy_with_logits(labels=tf.stop_gradient(batch['m']), logits=out['m_logits']))
 
         # One step backprop
         gradients = tape.gradient(total_loss, model.trainable_variables)
@@ -287,7 +287,7 @@ def train_online_softmax(model, optimizer, data_gen, iterations, batch_size, p_b
             out = model(batch['x'])
         
             # Compute losses
-            total_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=out['m_logits'], labels=batch['m']))
+            total_loss = tf.reduce_mean(input_tensor=tf.nn.softmax_cross_entropy_with_logits(logits=out['m_logits'], labels=tf.stop_gradient(batch['m'])))
 
         # One step backprop
         gradients = tape.gradient(total_loss, model.trainable_variables)

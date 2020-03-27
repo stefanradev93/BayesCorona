@@ -2,6 +2,11 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.regularizers import l2
 
+if int(tf.__version__[0]) == 1:
+    LSTM = tf.keras.layers.CuDNNLSTM
+else:
+    LSTM = tf.compat.v1.keras.layers.LSTM
+
 
 class Permutation(tf.keras.Model):
     """Implements a permutation layer to permute the input dimensions of the cINN block."""
@@ -455,8 +460,8 @@ class SequenceNetwork(tf.keras.Model):
         """
 
         super().__init__()
-        self.lstm = tf.compat.v1.keras.layers.LSTM(meta['lstm_units'])
 
+        self.lstm =LSTM(meta['lstm_units'])
         if meta['conv_meta'] is not None:
             self.conv = tf.keras.Sequential(
                 [

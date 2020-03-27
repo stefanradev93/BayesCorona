@@ -15,7 +15,7 @@ def maximum_likelihood_loss(z, log_det_J, **args):
     loss : tf.Tensor of shape (,)  -- a single scalar Monte-Carlo approximation of E[ ||z||^2 / 2 - log|det(J)| ]
     """
 
-    return tf.reduce_mean(0.5 * tf.square(tf.norm(z, axis=-1)) - log_det_J)
+    return tf.reduce_mean(input_tensor=0.5 * tf.square(tf.norm(tensor=z, axis=-1)) - log_det_J)
 
 
 def heteroscedastic_loss(y_true, y_mean, y_var, **args):
@@ -34,9 +34,9 @@ def heteroscedastic_loss(y_true, y_mean, y_var, **args):
 
     """
 
-    logvar = tf.reduce_sum(0.5 * tf.log(y_var), axis=-1)
-    squared_error = tf.reduce_sum(0.5 * tf.square(y_true - y_mean) / y_var, axis=-1)
-    loss = tf.reduce_mean(squared_error + logvar)
+    logvar = tf.reduce_sum(input_tensor=0.5 * tf.math.log(y_var), axis=-1)
+    squared_error = tf.reduce_sum(input_tensor=0.5 * tf.square(y_true - y_mean) / y_var, axis=-1)
+    loss = tf.reduce_mean(input_tensor=squared_error + logvar)
     return loss
 
 
@@ -82,8 +82,8 @@ def kullback_leibler_gaussian(z_mean, z_logvar, beta=1., **args):
     """
     
     loss = 1 + z_logvar - tf.square(z_mean) - tf.exp(z_logvar)
-    loss = -0.5 * tf.reduce_sum(loss, axis=-1)
-    return beta * tf.reduce_mean(loss)
+    loss = -0.5 * tf.reduce_sum(input_tensor=loss, axis=-1)
+    return beta * tf.reduce_mean(input_tensor=loss)
 
 
 def kullback_leibler_dirichlet(m_true, alpha):
@@ -102,12 +102,12 @@ def kullback_leibler_dirichlet(m_true, alpha):
     alpha = alpha * (1 - m_true) + m_true
     M = int(m_true.shape[1])
     beta = tf.constant(np.ones((1, M)), dtype=tf.float32)
-    alpha0 = tf.reduce_sum(alpha, axis=1, keepdims=True)
+    alpha0 = tf.reduce_sum(input_tensor=alpha, axis=1, keepdims=True)
     
-    kl = tf.reduce_sum((alpha - beta) * (tf.digamma(alpha) - tf.digamma(alpha0)), axis=1, keepdims=True) + \
-         tf.lgamma(alpha0) - tf.reduce_sum(tf.lgamma(alpha), axis=1, keepdims=True) + \
-         tf.reduce_sum(tf.lgamma(beta), axis=1, keepdims=True) - tf.lgamma(tf.reduce_sum(beta, axis=1, keepdims=True))
-    kl = tf.reduce_mean(kl)
+    kl = tf.reduce_sum(input_tensor=(alpha - beta) * (tf.math.digamma(alpha) - tf.math.digamma(alpha0)), axis=1, keepdims=True) + \
+         tf.math.lgamma(alpha0) - tf.reduce_sum(input_tensor=tf.math.lgamma(alpha), axis=1, keepdims=True) + \
+         tf.reduce_sum(input_tensor=tf.math.lgamma(beta), axis=1, keepdims=True) - tf.math.lgamma(tf.reduce_sum(input_tensor=beta, axis=1, keepdims=True))
+    kl = tf.reduce_mean(input_tensor=kl)
     return kl
 
 
@@ -116,8 +116,8 @@ def kullback_leibler_iaf(z, logqz_x, beta=1., **args):
     Computes the KL loss for an iaf model.
     """
     
-    logpz = -tf.reduce_sum(0.5 * np.log(2*np.pi) + 0.5 * tf.square(z), axis=-1)
-    kl = beta * tf.reduce_mean(logqz_x - logpz)
+    logpz = -tf.reduce_sum(input_tensor=0.5 * np.log(2*np.pi) + 0.5 * tf.square(z), axis=-1)
+    kl = beta * tf.reduce_mean(input_tensor=logqz_x - logpz)
     return kl
 
 
@@ -135,7 +135,7 @@ def mean_squared_error(theta, theta_hat, **args):
     loss : tf.Tensor of shape (,)  -- the mean squared error
     """
 
-    return tf.losses.mean_squared_error(theta, theta_hat)
+    return tf.compat.v1.losses.mean_squared_error(theta, theta_hat)
 
 
 def gaussian_kernel_matrix(x, y, sigmas):
@@ -156,10 +156,10 @@ def gaussian_kernel_matrix(x, y, sigmas):
     """
 
     beta = 1. / (2. * (tf.expand_dims(sigmas, 1)))
-    norm = lambda x: tf.reduce_sum(tf.square(x), 1)
-    dist = tf.transpose(norm(tf.expand_dims(x, 2) - tf.transpose(y)))
+    norm = lambda x: tf.reduce_sum(input_tensor=tf.square(x), axis=1)
+    dist = tf.transpose(a=norm(tf.expand_dims(x, 2) - tf.transpose(a=y)))
     s = tf.matmul(beta, tf.reshape(dist, (1, -1)))
-    return tf.reshape(tf.reduce_sum(tf.exp(-s), 0), tf.shape(dist))
+    return tf.reshape(tf.reduce_sum(input_tensor=tf.exp(-s), axis=0), tf.shape(input=dist))
     
 
 def mmd_kernel(x, y, kernel=gaussian_kernel_matrix):
@@ -179,9 +179,9 @@ def mmd_kernel(x, y, kernel=gaussian_kernel_matrix):
     loss : tf.Tensor of shape (,) denoting the squared maximum mean discrepancy loss.
     """
 
-    loss = tf.reduce_mean(kernel(x, x))
-    loss += tf.reduce_mean(kernel(y, y))
-    loss -= 2 * tf.reduce_mean(kernel(x, y))
+    loss = tf.reduce_mean(input_tensor=kernel(x, x))
+    loss += tf.reduce_mean(input_tensor=kernel(y, y))
+    loss -= 2 * tf.reduce_mean(input_tensor=kernel(x, y))
     return loss
 
 
@@ -201,9 +201,9 @@ def bayes_risk(m_true, alpha, alpha0, m_probs, **args):
     risk : tf.Tensor of shape (,) -- a single scalar Monte-Carlo approximation of the Bayes risk
     """
 
-    pred_mean = tf.reduce_sum((m_true - m_probs)**2, axis=1, keepdims=True)
-    pred_var = tf.reduce_sum(alpha * (alpha0 - alpha) / (alpha0 * alpha0 * (alpha0 + 1)), axis=1, keepdims=True)
-    risk = tf.reduce_mean(pred_mean + pred_var)
+    pred_mean = tf.reduce_sum(input_tensor=(m_true - m_probs)**2, axis=1, keepdims=True)
+    pred_var = tf.reduce_sum(input_tensor=alpha * (alpha0 - alpha) / (alpha0 * alpha0 * (alpha0 + 1)), axis=1, keepdims=True)
+    risk = tf.reduce_mean(input_tensor=pred_mean + pred_var)
     return risk
 
 
@@ -245,10 +245,10 @@ def heteroscedastic_loglik(x, m_true):
     ll : tf.Tensor of shape (,) -- a single scalar Monte-Carlo approximation of the heteroscedastic loss
     """
     
-    logsumexp = tf.log(tf.reduce_sum(tf.exp(x), axis=-1, keepdims=True) + 1e-20)
+    logsumexp = tf.math.log(tf.reduce_sum(input_tensor=tf.exp(x), axis=-1, keepdims=True) + 1e-20)
     ll = x - logsumexp
-    ll = tf.boolean_mask(ll, m_true)
-    ll = tf.reduce_mean(ll)
+    ll = tf.boolean_mask(tensor=ll, mask=m_true)
+    ll = tf.reduce_mean(input_tensor=ll)
     return ll
     
 
@@ -270,7 +270,7 @@ def log_loss(m_true, alpha, alpha0, m_probs, lambd=1.0):
     """
     
     m_probs = tf.clip_by_value(m_probs, 1e-15, 1 - 1e-15)
-    loss = -tf.reduce_mean(tf.reduce_sum(m_true * tf.log(m_probs), axis=1))
+    loss = -tf.reduce_mean(input_tensor=tf.reduce_sum(input_tensor=m_true * tf.math.log(m_probs), axis=1))
     if lambd > 0:
         kl = kullback_leibler_dirichlet(m_true, alpha)
         loss = loss + lambd * kl
@@ -292,8 +292,8 @@ def brier_score(m_true, alpha, alpha0, m_probs):
     loss : tf.Tensor of shape (,) -- a single scalar Monte-Carlo approximation of the regularized Bayes risk
     """
     
-    score = 1 + tf.reduce_sum(m_probs**2, axis=-1) - 2 * tf.reduce_sum(m_true * m_probs, axis=-1)
-    m_score = tf.reduce_mean(score)
+    score = 1 + tf.reduce_sum(input_tensor=m_probs**2, axis=-1) - 2 * tf.reduce_sum(input_tensor=m_true * m_probs, axis=-1)
+    m_score = tf.reduce_mean(input_tensor=score)
     return m_score
 
 
@@ -314,8 +314,8 @@ def cross_entropy(m_true, alpha, alpha0, m_probs, lambd=1.0):
     loss : tf.Tensor of shape (,) -- a single scalar Monte-Carlo approximation of the cross entropy
     """
 
-    loss = tf.reduce_sum(m_true * (tf.digamma(alpha0) - tf.digamma(alpha)), 1, keepdims=True)
-    loss = tf.reduce_mean(loss)
+    loss = tf.reduce_sum(input_tensor=m_true * (tf.math.digamma(alpha0) - tf.math.digamma(alpha)), axis=1, keepdims=True)
+    loss = tf.reduce_mean(input_tensor=loss)
     if lambd > 0:
         kl = kullback_leibler_dirichlet(m_true, alpha)
         loss = loss + lambd * kl
@@ -340,8 +340,8 @@ def multinomial_likelihood(m_true, alpha, alpha0, m_probs):
     ll : tf.Tensor of shape (,) -- a single scalar Monte-Carlo approximation of the type II ML
     """
 
-    ll = tf.reduce_sum(m_true * (tf.log(alpha0) - tf.log(alpha)), 1, keepdims=True)
-    ll = tf.reduce_mean(ll)
+    ll = tf.reduce_sum(input_tensor=m_true * (tf.math.log(alpha0) - tf.math.log(alpha)), axis=1, keepdims=True)
+    ll = tf.reduce_mean(input_tensor=ll)
     return ll
 
 

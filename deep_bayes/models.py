@@ -32,8 +32,8 @@ class Permutation(tf.keras.Model):
         """Permutes the bach of an input."""
 
         if not inverse:
-            return tf.transpose(tf.gather(tf.transpose(x), self.permutation))
-        return tf.transpose(tf.gather(tf.transpose(x), self.inv_permutation))
+            return tf.transpose(a=tf.gather(tf.transpose(a=x), self.permutation))
+        return tf.transpose(a=tf.gather(tf.transpose(a=x), self.inv_permutation))
 
 
 class CouplingNet(tf.keras.Model):
@@ -151,7 +151,7 @@ class ConditionalInvertibleBlock(tf.keras.Model):
 
             if log_det_J:
                 # log|J| = log(prod(diag(J))) -> according to inv architecture
-                return v, tf.reduce_sum(s1, axis=-1) + tf.reduce_sum(s2, axis=-1)
+                return v, tf.reduce_sum(input_tensor=s1, axis=-1) + tf.reduce_sum(input_tensor=s2, axis=-1)
             return v
 
         # --- Inverse pass --- #
@@ -196,7 +196,7 @@ class BayesFlow(tf.keras.Model):
         permute     : bool -- whether to permute the inputs to the cINN
         """
 
-        super(BayesFlow, self).__init__()
+        super().__init__()
 
         self.cINNs = [ConditionalInvertibleBlock(meta, theta_dim, alpha=alpha, permute=permute) for _ in range(n_blocks)]
         self.summary_net = summary_net
@@ -269,12 +269,12 @@ class BayesFlow(tf.keras.Model):
 
         # In case x is a single instance
         if int(x.shape[0]) == 1:
-            z_normal_samples = tf.random_normal(shape=(n_samples, self.theta_dim), dtype=tf.float32)
+            z_normal_samples = tf.random.normal(shape=(n_samples, self.theta_dim), dtype=tf.float32)
             theta_samples = self.inverse(z_normal_samples, tf.tile(x, [n_samples, 1]))
         # In case of a batch input, send a 3D tensor through the invertible chain and use tensordot
         # Warning: This tensor could get pretty big if sampling a lot of values for a lot of batch instances!
         else:
-            z_normal_samples = tf.random_normal(shape=(n_samples, int(x.shape[0]), self.theta_dim), dtype=tf.float32)
+            z_normal_samples = tf.random.normal(shape=(n_samples, int(x.shape[0]), self.theta_dim), dtype=tf.float32)
             theta_samples = self.inverse(z_normal_samples, tf.stack([x] * n_samples))
 
         if to_numpy:
@@ -340,9 +340,9 @@ class InvariantModule(tf.keras.Model):
         # Compute weights if existing or perfor mean pooling
         if self.weights_layer is not None:
             w = tf.nn.softmax(self.weights_layer(x), axis=1)
-            w_x = tf.reduce_sum(x_emb * w, axis=1)
+            w_x = tf.reduce_sum(input_tensor=x_emb * w, axis=1)
         else:
-            w_x = tf.reduce_mean(x_emb, axis=1)
+            w_x = tf.reduce_mean(input_tensor=x_emb, axis=1)
     
         # Increase representational power
         out = self.post_pooling_dense(w_x)
@@ -454,8 +454,8 @@ class SequenceNetwork(tf.keras.Model):
         meta : dict -- hyperparameter settings for the equivariant and invariant modules
         """
 
-        super(SequenceNetwork, self).__init__()
-        self.lstm = tf.keras.layers.CuDNNLSTM(meta['lstm_units'])
+        super().__init__()
+        self.lstm = tf.compat.v1.keras.layers.LSTM(meta['lstm_units'])
 
         if meta['conv_meta'] is not None:
             self.conv = tf.keras.Sequential(
@@ -536,7 +536,7 @@ class DeepEvidentialModel(tf.keras.Model):
         alpha = self.evidence(x)
 
         # Compute Dirichlet strength (alpha0) and mean (m_probs)
-        alpha0 = tf.reduce_sum(alpha, axis=1, keepdims=True)
+        alpha0 = tf.reduce_sum(input_tensor=alpha, axis=1, keepdims=True)
         m_probs = alpha / alpha0
         return {'alpha': alpha, 'alpha0': alpha0 ,'m_probs': m_probs}
 
@@ -557,7 +557,7 @@ class DeepEvidentialModel(tf.keras.Model):
         """Returns the mean, variance and uncertainty of the Dirichlet distro."""
 
         alpha = self.evidence(x)
-        alpha0 = tf.reduce_sum(alpha, axis=1, keepdims=True)
+        alpha0 = tf.reduce_sum(input_tensor=alpha, axis=1, keepdims=True)
         mean = alpha / alpha0
         var = alpha * (alpha0 - alpha) / (alpha0 * alpha0 * (alpha0 + 1))
         uncertainty = self.M / alpha0
@@ -604,7 +604,7 @@ class DeepEvidentialModel(tf.keras.Model):
         pm_samples = np.stack([np.random.dirichlet(alpha[n, :], size=n_samples) for n in range(N)], axis=1)
 
         if not to_numpy:
-             pm_samples = tf.convert_to_tensor(pm_samples, dtype=tf.float32)
+             pm_samples = tf.convert_to_tensor(value=pm_samples, dtype=tf.float32)
         return pm_samples
 
 
@@ -664,7 +664,7 @@ class VAE(tf.keras.Model):
         z_mean, z_logvar = tf.split(x, 2, axis=-1)
 
         # Sample
-        eps = tf.random_normal(shape=z_mean.shape)
+        eps = tf.random.normal(shape=z_mean.shape)
         z = z_mean + eps * tf.exp(z_logvar * 0.5)
 
         # Probabilistic classification
@@ -736,12 +736,12 @@ class VAE(tf.keras.Model):
         z_mean, z_logvar = tf.split(x, 2, axis=-1)
 
         # Sample
-        eps = tf.random_normal(shape=(n_samples, z_mean.shape[0], z_mean.shape[1]))
+        eps = tf.random.normal(shape=(n_samples, z_mean.shape[0], z_mean.shape[1]))
         z = z_mean + eps * tf.exp(z_logvar * 0.5)
-        z = tf.transpose(z, [1, 0, 2])
+        z = tf.transpose(a=z, perm=[1, 0, 2])
 
         m_samples = tf.nn.softmax(self.logits_layer(z), axis=-1)
-        m_samples = tf.transpose(m_samples, [1, 0, 2])
+        m_samples = tf.transpose(a=m_samples, perm=[1, 0, 2])
         if to_numpy:
             return m_samples.numpy()
         return m_samples
@@ -818,8 +818,8 @@ class MCDropOutModel(tf.keras.Model):
         x_l = self.dense_net(x, training=True)
         logits = self.logits_layer(x_l)
         m_samples = tf.nn.softmax(logits, axis=-1)
-        m_probs = tf.reduce_mean(m_samples, axis=1)
-        m_logits = tf.reduce_mean(logits, axis=1)
+        m_probs = tf.reduce_mean(input_tensor=m_samples, axis=1)
+        m_logits = tf.reduce_mean(input_tensor=logits, axis=1)
 
         if to_numpy:
             m_logits = m_logits.numpy()
@@ -853,7 +853,7 @@ class MCDropOutModel(tf.keras.Model):
         x_l = self.dense_net(x, training=True)
         logits = self.logits_layer(x_l)
         m_samples = tf.nn.softmax(logits, axis=-1)
-        m_samples = tf.transpose(m_samples, [1, 0, 2])
+        m_samples = tf.transpose(a=m_samples, perm=[1, 0, 2])
 
         if to_numpy:
             return m_samples.numpy()

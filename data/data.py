@@ -11,10 +11,9 @@ import pandas as pd
 
 
 def load_country(S0,country="Germany"):
-    Idf = pd.read_csv("time_series_covid19_confirmed_global_narrow.csv",skiprows=[1],parse_dates=["Date"],index_col="Date")
-    print(Idf.index)
-    Rdf = pd.read_csv("time_series_covid19_recovered_global_narrow.csv",skiprows=[1],parse_dates=["Date"],index_col="Date")
-    Ddf = pd.read_csv("time_series_covid19_deaths_global_narrow.csv",skiprows=[1],parse_dates=["Date"],index_col="Date")
+    Idf = pd.read_csv("data/time_series_covid19_confirmed_global_narrow.csv",skiprows=[1],parse_dates=["Date"],index_col="Date")
+    Rdf = pd.read_csv("data/time_series_covid19_recovered_global_narrow.csv",skiprows=[1],parse_dates=["Date"],index_col="Date")
+    Ddf = pd.read_csv("data/time_series_covid19_deaths_global_narrow.csv",skiprows=[1],parse_dates=["Date"],index_col="Date")
     I = Idf.loc[Idf['Country/Region'] == country].resample('D').interpolate('cubic')["Value"].to_numpy()
     R = Rdf.loc[Rdf['Country/Region'] == country].resample('D').interpolate('cubic')["Value"].to_numpy()
     D = Ddf.loc[Ddf['Country/Region'] == country].resample('D').interpolate('cubic')["Value"].to_numpy()
@@ -23,8 +22,12 @@ def load_country(S0,country="Germany"):
     assert(len(D)==len(R))
     
     S = S0-I-R-D
+    print("S", S)
+    print("I", I)
+    print("D", D)
+    print("R", R)
     
-    return S/S0,I/S0,R/S0,D/S0
+    return S/S0,I/S0,D/S0,R/S0
 
 if __name__ == "__main__":    
     S,I,R,D = load_country(S0=82000000, country = "Germany")

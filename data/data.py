@@ -18,6 +18,12 @@ def load_country(S0,country="Germany"):
     R = Rdf.loc[Rdf['Country/Region'] == country].resample('D').interpolate('cubic')["Value"].to_numpy()
     D = Ddf.loc[Ddf['Country/Region'] == country].resample('D').interpolate('cubic')["Value"].to_numpy()
     
+    # truncate dataseries to points where at least one infection happened
+    idx = np.where(I > 0)[0][0]
+    I = np.concatenate([np.array([0]),I[idx:]])
+    R = np.concatenate([np.array([0]),R[idx:]])
+    D = np.concatenate([np.array([0]),D[idx:]])
+    
     assert(len(I)==len(R))
     assert(len(D)==len(R))
     

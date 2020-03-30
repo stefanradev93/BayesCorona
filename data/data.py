@@ -24,7 +24,7 @@ def load_country(S0,country="Germany"):
     
     S = S0-I-R-D
     
-    return S,I,R,D
+    return S/S0,I/S0,R/S0,D/S0
 
 if __name__ == "__main__":    
     S,I,R,D = load_country(S0=82000000, country = "Germany")

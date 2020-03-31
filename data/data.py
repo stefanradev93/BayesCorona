@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import data.priors as priors
 from deep_bayes import theta as thetaed
+import tensorflow as tf
 
 def load_country(S0,country="Germany"):
     Idf = pd.read_csv("data/time_series_covid19_confirmed_global_narrow.csv",skiprows=[1],parse_dates=["Date"],index_col="Date")
@@ -29,10 +30,7 @@ def load_country(S0,country="Germany"):
     assert(len(D)==len(R))
     
     S = S0-I-R-D
-    print("S", S)
-    print("I", I)
-    print("D", D)
-    print("R", R)
+
     N=S0
     return S/N,I/N,D/N,R/N
 
@@ -128,6 +126,75 @@ def forward_model(aparams, t,psteps=0,init_params=None):
         result[pn,...] = np.stack([S, I, D, R]).T
         #print("timeseries", dt, th_params, result[pn])
     return result
+
+
+def data_generator(batch_size, t_obs=None, t_min=30, t_max=100, dt=1, to_tensor=True, do_enhance_contrast = True, **args):
+    """
+    Runs the forward model 'batch_size' times by first sampling fromt the prior
+    theta ~ p(theta) and running x ~ p(x|theta).
+    ----------
+    
+    Arguments:
+    batch_size : int -- the number of samples to draw from the prior
+    to_tensor  : boolean -- converts theta and x to tensors if True
+    ----------
+    
+    Output:
+    theta : tf.Tensor or np.ndarray of shape (batch_size, theta_dim) - the data gen parameters 
+    x     : tf.Tensor of np.ndarray of shape (batch_size, n_obs, x_dim)  - the generated data
+    """
+    S0 = np.random.randint(1*1e6,400*1e6,size=(batch_size,1))
+    I0 = np.zeros((batch_size,1))
+    D0 = np.zeros((batch_size,1))
+    R0 = np.zeros((batch_size,1))
+    
+    init_vals = np.concatenate([S0, S0/S0, I0, D0, R0],axis=1)
+    
+    # Sample from prior
+    # theta is a np.array of shape (batch_size, theta_dim)
+    otheta = priors.prior_sample(batch_size)
+    theta = thetaed.encode(otheta,priors.th_low, priors.th_high)
+    
+    if t_obs is None:
+        t_obs = np.random.randint(t_min, t_max+1)
+    
+    t = np.linspace(0, t_obs, int(t_obs/dt) + 1)
+    
+    
+    #generate 3 random rhos with decreasing values
+    rhos = np.random.rand(batch_size,3)*0.6+0.4
+    rhos = np.cumprod(rhos,axis=1)
+    #print("rhos", rhos)
+
+    rhos_t = np.random.randint(t_obs-1, size=(batch_size,4))+1
+    rhos_t = (rhos_t / np.sum(rhos_t,axis=1,keepdims=True))[:,:]
+    
+    #print("atanh_rhos", rhos)
+    # construct rhoparam matrix
+    rhoparams = thetaed.encode(np.concatenate([rhos,rhos_t],axis=1), priors.rh_low, priors.rh_high)
+    
+    #construct new theta
+    theta_all = np.concatenate([rhoparams, theta],axis=1)
+
+    # construct thetap
+    thetap = np.concatenate([init_vals, theta_all],axis=1)
+    
+    # Generate data
+    # x is a np.ndarray of shape (batch_size, n_obs, x_dim)
+    #x = np.apply_along_axis(forward_model, axis=1, arr=thetap, t=t, **args)
+    x = forward_model(thetap, t)
+    
+    x = add_counting_noise(x,S0,otheta[:,1:2])
+    
+    x = np.clip(x,0,1) # FIXME: WHY ARE THERE SOMETIMES VALUES <0 ?????????
+    if do_enhance_contrast:
+        x = enhance_contrast(x)
+    
+    # Convert to tensor, if specified 
+    if to_tensor:
+        theta_all = tf.convert_to_tensor(theta_all, dtype=tf.float64)
+        x = tf.convert_to_tensor(x, dtype=tf.float64)
+    return {'theta': theta_all, 'x': x}
 
 
 if __name__ == "__main__":    

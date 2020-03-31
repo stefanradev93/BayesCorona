@@ -45,6 +45,21 @@ def enhance_contrast(x):
     
     return np.concatenate([a,b,t],axis=2)
 
+def add_counting_noise(x,N,p):
+    # have binomial counting noise on infected rate
+    delta_I = x[:,1:,1]-x[:,:-1,1]
+    dIcounts = (delta_I*N).astype(np.int64)
+    new_deltas = np.random.binomial(np.abs(dIcounts),p)
+    new_deltas = np.where(dIcounts > 0, new_deltas, -new_deltas)/N
+    Inew = np.cumsum(new_deltas,axis=1)
+
+    # compute correction factor for measured R
+    Rfactors = Inew / (x[:,1:,1]+1e-10)
+    x[:,1:,1] = Inew
+    x[:,1:,-1] *= Rfactors
+    
+    return x
+
 if __name__ == "__main__":    
     S,I,R,D = load_country(S0=82000000, country = "Germany")
     print("S",S)

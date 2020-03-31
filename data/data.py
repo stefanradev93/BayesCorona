@@ -32,8 +32,18 @@ def load_country(S0,country="Germany"):
     print("I", I)
     print("D", D)
     print("R", R)
+    N=S0
+    return S/N,I/N,D/N,R/N
+
+
+def enhance_contrast(x):
+    assert((x>=0).all())
+    assert((x<=1).all())
+    a = np.log(x+1e-8)
+    b = np.log(1-x+1e-8)
+    t = np.repeat(np.arange(0,x.shape[1])[None,:,None],x.shape[0],axis=0)
     
-    return S/S0,I/S0,D/S0,R/S0
+    return np.concatenate([a,b,t],axis=2)
 
 if __name__ == "__main__":    
     S,I,R,D = load_country(S0=82000000, country = "Germany")
